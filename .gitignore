@@ -55,4 +55,3 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
-databaseTest.py
