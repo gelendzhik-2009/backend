@@ -1,7 +1,9 @@
+from datetime import timedelta
+from app.config import settings
 from sqlalchemy.orm import Session
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
-from app.security import get_password_hash, verify_password
+from app.security import create_access_token, get_password_hash, verify_password
 
 
 def get_user(db: Session, user_id: int) -> User:
@@ -80,3 +82,13 @@ def authenticate_user(db: Session, username: str, password: str) -> User:
         return None
     
     return user
+
+
+def generate_user_token(user):
+    """Generate JWT token for authenticated user"""
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    return create_access_token(
+        data={"sub": user.username},
+        expires_delta=access_token_expires
+    )

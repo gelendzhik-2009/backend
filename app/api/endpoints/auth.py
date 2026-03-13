@@ -3,14 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.user import UserCreate, UserResponse, UserLogin, Token
-from app.crud.user import create_user, authenticate_user, get_user_by_email, get_user_by_username
+from app.crud.user import create_user, authenticate_user, generate_user_token, get_user_by_email, get_user_by_username
 from app.security import create_access_token, get_current_active_user
 from app.config import settings
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 def register(user: UserCreate, db: Session = Depends(get_db)):
     """Register a new user"""
     # Check if user already exists
@@ -29,7 +29,15 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         )
     
     db_user = create_user(db, user)
-    return db_user
+
+    # Create access token for the new user
+    access_token = generate_user_token(db_user)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": db_user
+    }
 
 
 @router.post("/login", response_model=Token)
@@ -44,11 +52,7 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": db_user.username},
-        expires_delta=access_token_expires
-    )
+    access_token = generate_user_token(db_user)
     
     return {
         "access_token": access_token,
