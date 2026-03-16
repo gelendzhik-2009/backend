@@ -25,6 +25,15 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
+def decode_token_to_user_id(token: str) -> UUID:
+    """Decode JWT token and return user UUID, raises on failure"""
+    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    user_id_str = payload.get("sub")
+    if user_id_str is None:
+        raise ValueError("Missing sub claim")
+    return UUID(user_id_str)
+
+
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Create JWT access token"""
     to_encode = data.copy()
@@ -49,11 +58,7 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id_str: str = payload.get("sub")
-        if user_id_str is None:
-            raise credentials_exception
-        user_id = UUID(user_id_str)
+        user_id = decode_token_to_user_id(token)
     except (JWTError, ValueError):
         raise credentials_exception
 

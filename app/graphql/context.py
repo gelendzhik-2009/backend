@@ -2,13 +2,13 @@
 
 from typing import Optional, AsyncGenerator
 from uuid import UUID
-from jose import JWTError, jwt
+from jose import JWTError
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 from strawberry.fastapi import BaseContext
-from app.config import settings
 from app.database import SessionLocal
 from app.models.user import User
+from app.security import decode_token_to_user_id
 
 
 class Context(BaseContext):
@@ -26,11 +26,7 @@ def _extract_user(request: Request, db: Session) -> Optional[User]:
         return None
     token = auth_header[7:]
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id_str = payload.get("sub")
-        if user_id_str is None:
-            return None
-        user_id = UUID(user_id_str)
+        user_id = decode_token_to_user_id(token)
     except (JWTError, ValueError, TypeError):
         return None
     return db.query(User).filter(User.id == user_id).first()

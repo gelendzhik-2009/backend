@@ -41,8 +41,11 @@ def upload_file(file_data: bytes, original_filename: str, content_type: str) -> 
         length=len(file_data),
         content_type=content_type,
     )
-    scheme = "https" if settings.MINIO_SECURE else "http"
-    url = f"{scheme}://{settings.MINIO_ENDPOINT}/{settings.MINIO_BUCKET}/{object_name}"
+    if settings.MINIO_PUBLIC_URL:
+        url = f"{settings.MINIO_PUBLIC_URL.rstrip('/')}/{settings.MINIO_BUCKET}/{object_name}"
+    else:
+        scheme = "https" if settings.MINIO_SECURE else "http"
+        url = f"{scheme}://{settings.MINIO_ENDPOINT}/{settings.MINIO_BUCKET}/{object_name}"
     return {"object_name": object_name, "url": url}
 
 

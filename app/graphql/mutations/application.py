@@ -38,7 +38,12 @@ class ApplicationMutation:
         db_post = get_post(db, db_app.post_id)
         if not db_post or db_post.author_id != info.context.user.id:
             raise ValueError("Not authorized to update this application")
-        db_app = update_application_status(db, db_app, input.status)
+        from app.enums import ApplicationStatus
+        try:
+            ApplicationStatus(input.status.upper())
+        except ValueError:
+            raise ValueError(f"Invalid status: '{input.status}'")
+        db_app = update_application_status(db, db_app, input.status.upper())
         return _app_type(db_app)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])

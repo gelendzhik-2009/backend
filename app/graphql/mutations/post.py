@@ -57,7 +57,9 @@ class PostMutation:
             raise ValueError("Company not found or not owned by you")
 
         _validate_post_detail(input)
-        db_post = create_post(db, info.context.user.id, input.company_id, input.post_type)
+        from app.enums import PostType as PostTypeEnum
+        canonical_type = PostTypeEnum(input.post_type.upper()).value
+        db_post = create_post(db, info.context.user.id, input.company_id, canonical_type)
 
         if input.contact:
             _attach_contact(db, db_post.id, input.contact)
@@ -75,7 +77,12 @@ class PostMutation:
         db_post = get_post(info.context.db, post_id)
         if not db_post or db_post.author_id != info.context.user.id:
             raise ValueError("Post not found or not authored by you")
-        db_post = update_post(info.context.db, db_post, {"status": status})
+        from app.enums import PostStatus
+        try:
+            PostStatus(status.upper())
+        except ValueError:
+            raise ValueError(f"Invalid status: '{status}'")
+        db_post = update_post(info.context.db, db_post, {"status": status.upper()})
         return _post_type(db_post)
 
     @strawberry.mutation(permission_classes=[IsEmployer])

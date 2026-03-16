@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = ""
     MINIO_BUCKET: str = "tramplin"
     MINIO_SECURE: bool = False
+    MINIO_PUBLIC_URL: str = ""
 
     class Config:
         env_file = ".env"
