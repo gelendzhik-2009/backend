@@ -4,6 +4,7 @@ import uuid as _uuid
 import strawberry
 from strawberry.types import Info
 from app.graphql.permissions import IsAuthenticated
+from typing import Optional
 from app.graphql.types.social import ContactType, RecommendationType, FavoriteType
 from app.graphql.inputs.social import (
     ContactRequestInput, RespondContactInput,
@@ -50,9 +51,13 @@ class SocialMutation:
         )
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    def toggle_favorite(self, info: Info, input: FavoriteInput) -> FavoriteType:
-        from app.crud.favorite import add_favorite
-        db_f = add_favorite(info.context.db, info.context.user.id, input.post_id, input.company_id)
+    def toggle_favorite(self, info: Info, input: FavoriteInput) -> Optional[FavoriteType]:
+        if not input.post_id and not input.company_id:
+            raise ValueError("Either post_id or company_id must be provided")
+        from app.crud.favorite import toggle_favorite
+        db_f, created = toggle_favorite(info.context.db, info.context.user.id, input.post_id, input.company_id)
+        if not created:
+            return None
         return FavoriteType(
             id=db_f.id, user_id=db_f.user_id,
             post_id=db_f.post_id, company_id=db_f.company_id,

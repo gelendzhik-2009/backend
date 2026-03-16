@@ -9,13 +9,23 @@ def get_favorites_by_user(db: Session, user_id: UUID) -> list[Favorite]:
     return db.query(Favorite).filter(Favorite.user_id == user_id).all()
 
 
-def add_favorite(db: Session, user_id: UUID, post_id: Optional[UUID] = None, company_id: Optional[UUID] = None) -> Favorite:
-    """Add a post or company to favorites"""
+def toggle_favorite(db: Session, user_id: UUID, post_id: Optional[UUID] = None, company_id: Optional[UUID] = None):
+    """Toggle a favorite: remove if exists, create if not. Returns (Favorite|None, created:bool)"""
+    query = db.query(Favorite).filter(Favorite.user_id == user_id)
+    if post_id:
+        query = query.filter(Favorite.post_id == post_id)
+    elif company_id:
+        query = query.filter(Favorite.company_id == company_id)
+    existing = query.first()
+    if existing:
+        db.delete(existing)
+        db.commit()
+        return existing, False
     db_fav = Favorite(user_id=user_id, post_id=post_id, company_id=company_id)
     db.add(db_fav)
     db.commit()
     db.refresh(db_fav)
-    return db_fav
+    return db_fav, True
 
 
 def remove_favorite(db: Session, user_id: UUID, favorite_id: UUID) -> bool:

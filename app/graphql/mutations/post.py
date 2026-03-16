@@ -13,6 +13,8 @@ def _post_type(db_post) -> PostType:
         id=db_post.id, author_id=db_post.author_id, company_id=db_post.company_id,
         type=db_post.type, status=db_post.status,
         created_at=db_post.created_at, updated_at=db_post.updated_at,
+        _skills_cache=list(db_post.skills) if hasattr(db_post, 'skills') else None,
+        _hashtags_cache=list(db_post.hashtags) if hasattr(db_post, 'hashtags') else None,
     )
 
 
@@ -54,6 +56,7 @@ class PostMutation:
         if not db_company or db_company.owner_id != info.context.user.id:
             raise ValueError("Company not found or not owned by you")
 
+        _validate_post_detail(input)
         db_post = create_post(db, info.context.user.id, input.company_id, input.post_type)
 
         if input.contact:
@@ -114,6 +117,25 @@ class PostMutation:
             db_post.hashtags.append(tag)
             db.commit()
         return True
+
+
+DETAIL_FIELD_MAP = {
+    "VACANCY": "vacancy",
+    "INTERNSHIP": "internship",
+    "EVENT": "event",
+    "MENTORING": "mentoring",
+    "SIMPLE": "simple",
+}
+
+
+def _validate_post_detail(input: CreatePostInput):
+    detail_fields = ["vacancy", "internship", "event", "mentoring", "simple"]
+    provided = [f for f in detail_fields if getattr(input, f, None) is not None]
+    if len(provided) != 1:
+        raise ValueError("Exactly one detail payload must be provided")
+    expected_field = DETAIL_FIELD_MAP.get(input.post_type.upper())
+    if expected_field != provided[0]:
+        raise ValueError(f"Detail payload '{provided[0]}' does not match post_type '{input.post_type}'")
 
 
 def _create_detail(db, db_post, input: CreatePostInput):

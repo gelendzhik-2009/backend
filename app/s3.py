@@ -29,8 +29,8 @@ def ensure_bucket() -> None:
         client.make_bucket(settings.MINIO_BUCKET)
 
 
-def upload_file(file_data: bytes, original_filename: str, content_type: str) -> str:
-    """Upload file to MinIO, return the object URL"""
+def upload_file(file_data: bytes, original_filename: str, content_type: str) -> dict:
+    """Upload file to MinIO, return dict with object_name and url"""
     client = get_s3_client()
     ext = original_filename.rsplit(".", 1)[-1] if "." in original_filename else "bin"
     object_name = f"{uuid.uuid4().hex}.{ext}"
@@ -42,14 +42,19 @@ def upload_file(file_data: bytes, original_filename: str, content_type: str) -> 
         content_type=content_type,
     )
     scheme = "https" if settings.MINIO_SECURE else "http"
-    return f"{scheme}://{settings.MINIO_ENDPOINT}/{settings.MINIO_BUCKET}/{object_name}"
+    url = f"{scheme}://{settings.MINIO_ENDPOINT}/{settings.MINIO_BUCKET}/{object_name}"
+    return {"object_name": object_name, "url": url}
 
 
-def delete_file(object_name: str) -> bool:
-    """Delete file from MinIO"""
+def delete_file(object_name_or_url: str) -> bool:
+    """Delete file from MinIO by object name or full URL"""
     client = get_s3_client()
+    key = object_name_or_url
+    bucket_prefix = f"/{settings.MINIO_BUCKET}/"
+    if bucket_prefix in key:
+        key = key.split(bucket_prefix, 1)[1]
     try:
-        client.remove_object(settings.MINIO_BUCKET, object_name)
+        client.remove_object(settings.MINIO_BUCKET, key)
         return True
     except S3Error:
         return False

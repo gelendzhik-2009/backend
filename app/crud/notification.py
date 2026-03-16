@@ -7,7 +7,7 @@ def get_notifications(db: Session, user_id: UUID, unread_only: bool = False) -> 
     """Get notifications for a user"""
     query = db.query(Notification).filter(Notification.user_id == user_id)
     if unread_only:
-        query = query.filter(Notification.is_read == False)
+        query = query.filter(Notification.is_read.is_(False))
     return query.order_by(Notification.created_at.desc()).all()
 
 
@@ -33,7 +33,7 @@ def mark_notification_read(db: Session, notification_id: UUID) -> Notification:
 def mark_all_read(db: Session, user_id: UUID) -> int:
     """Mark all notifications as read, return count updated"""
     count = db.query(Notification).filter(
-        Notification.user_id == user_id, Notification.is_read == False
-    ).update({"is_read": True})
+        Notification.user_id == user_id, Notification.is_read.is_(False)
+    ).update({"is_read": True}, synchronize_session="fetch")
     db.commit()
     return count

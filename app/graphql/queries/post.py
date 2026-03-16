@@ -12,6 +12,8 @@ def _post_to_type(db_post) -> PostType:
         id=db_post.id, author_id=db_post.author_id, company_id=db_post.company_id,
         type=db_post.type, status=db_post.status,
         created_at=db_post.created_at, updated_at=db_post.updated_at,
+        _skills_cache=list(db_post.skills) if hasattr(db_post, 'skills') else None,
+        _hashtags_cache=list(db_post.hashtags) if hasattr(db_post, 'hashtags') else None,
     )
 
 

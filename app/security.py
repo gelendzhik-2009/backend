@@ -12,7 +12,7 @@ from app.models.user import User
 from app.enums import UserRole
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="graphql", auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

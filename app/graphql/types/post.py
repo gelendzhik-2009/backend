@@ -51,6 +51,8 @@ class PostType:
     status: str
     created_at: datetime = strawberry.UNSET
     updated_at: datetime = strawberry.UNSET
+    _skills_cache: strawberry.Private[Optional[list]] = None
+    _hashtags_cache: strawberry.Private[Optional[list]] = None
 
     @strawberry.field
     def contact(self, info: Info) -> Optional[PostContactType]:
@@ -65,12 +67,16 @@ class PostType:
 
     @strawberry.field
     def skills(self, info: Info) -> list[SkillType]:
+        if self._skills_cache is not None:
+            return [SkillType(id=s.id, name=s.name) for s in self._skills_cache]
         from app.models.post import Post
         db_post = info.context.db.query(Post).filter(Post.id == self.id).first()
         return [SkillType(id=s.id, name=s.name) for s in db_post.skills] if db_post else []
 
     @strawberry.field
     def hashtags(self, info: Info) -> list[HashtagType]:
+        if self._hashtags_cache is not None:
+            return [HashtagType(id=h.id, name=h.name) for h in self._hashtags_cache]
         from app.models.post import Post
         db_post = info.context.db.query(Post).filter(Post.id == self.id).first()
         return [HashtagType(id=h.id, name=h.name) for h in db_post.hashtags] if db_post else []
