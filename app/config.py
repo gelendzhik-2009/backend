@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
-    MINIO_BUCKET: str = "tramplин"
+    MINIO_BUCKET: str = "tramplin"
     MINIO_SECURE: bool = False
 
     class Config:

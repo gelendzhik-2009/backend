@@ -87,6 +87,14 @@ class CompanyType:
     @strawberry.field
     def verification_requests(self, info: Info) -> list[VerificationRequestType]:
         from app.models.verification_request import VerificationRequest
+        from app.enums import UserRole
+        user = info.context.user
+        if not user:
+            return []
+        is_owner = user.id == self.owner_id
+        is_moderator = user.role in (UserRole.MODERATOR.value, UserRole.SUPERADMIN.value)
+        if not is_owner and not is_moderator:
+            return []
         rows = info.context.db.query(VerificationRequest).filter(VerificationRequest.company_id == self.id).all()
         return [VerificationRequestType(
             id=r.id, company_id=r.company_id, tax_country_code=r.tax_country_code,

@@ -48,7 +48,11 @@ class PostMutation:
     @strawberry.mutation(permission_classes=[IsEmployer])
     def create_post(self, info: Info, input: CreatePostInput) -> PostType:
         from app.crud.post import create_post
+        from app.crud.company import get_company
         db = info.context.db
+        db_company = get_company(db, input.company_id)
+        if not db_company or db_company.owner_id != info.context.user.id:
+            raise ValueError("Company not found or not owned by you")
 
         db_post = create_post(db, info.context.user.id, input.company_id, input.post_type)
 
@@ -85,9 +89,11 @@ class PostMutation:
         from app.crud.skill import get_skill
         db = info.context.db
         db_post = get_post(db, post_id)
+        if not db_post or db_post.author_id != info.context.user.id:
+            raise ValueError("Post not found or not authored by you")
         skill = get_skill(db, skill_id)
-        if not db_post or not skill:
-            raise ValueError("Post or skill not found")
+        if not skill:
+            raise ValueError("Skill not found")
         if skill not in db_post.skills:
             db_post.skills.append(skill)
             db.commit()
@@ -99,9 +105,11 @@ class PostMutation:
         from app.crud.hashtag import get_hashtag
         db = info.context.db
         db_post = get_post(db, post_id)
+        if not db_post or db_post.author_id != info.context.user.id:
+            raise ValueError("Post not found or not authored by you")
         tag = get_hashtag(db, hashtag_id)
-        if not db_post or not tag:
-            raise ValueError("Post or hashtag not found")
+        if not tag:
+            raise ValueError("Hashtag not found")
         if tag not in db_post.hashtags:
             db_post.hashtags.append(tag)
             db.commit()

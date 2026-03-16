@@ -29,7 +29,8 @@ class SocialMutation:
         db_c = get_contact(info.context.db, input.contact_id)
         if not db_c or db_c.addressee_id != info.context.user.id:
             raise ValueError("Contact request not found")
-        db_c = respond_to_contact(info.context.db, db_c, input.accept)
+        new_status = "ACCEPTED" if input.accept else "REJECTED"
+        db_c = respond_to_contact(info.context.db, db_c, new_status)
         return ContactType(
             id=db_c.id, requester_id=db_c.requester_id,
             addressee_id=db_c.addressee_id, status=db_c.status,
@@ -61,4 +62,4 @@ class SocialMutation:
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     def remove_favorite(self, info: Info, favorite_id: _uuid.UUID) -> bool:
         from app.crud.favorite import remove_favorite
-        return remove_favorite(info.context.db, favorite_id)
+        return remove_favorite(info.context.db, info.context.user.id, favorite_id)

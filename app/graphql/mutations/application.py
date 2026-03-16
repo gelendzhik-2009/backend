@@ -22,18 +22,23 @@ class ApplicationMutation:
     def apply_to_post(self, info: Info, input: CreateApplicationInput) -> ApplicationType:
         from app.crud.application import create_application
         db_app = create_application(
-            info.context.db, info.context.user.id,
-            input.post_id, input.cover_letter,
+            info.context.db, input.post_id,
+            info.context.user.id, input.cover_letter,
         )
         return _app_type(db_app)
 
     @strawberry.mutation(permission_classes=[IsEmployer])
     def update_application_status(self, info: Info, input: UpdateApplicationStatusInput) -> ApplicationType:
         from app.crud.application import get_application, update_application_status
-        db_app = get_application(info.context.db, input.application_id)
+        from app.crud.post import get_post
+        db = info.context.db
+        db_app = get_application(db, input.application_id)
         if not db_app:
             raise ValueError("Application not found")
-        db_app = update_application_status(info.context.db, db_app, input.status)
+        db_post = get_post(db, db_app.post_id)
+        if not db_post or db_post.author_id != info.context.user.id:
+            raise ValueError("Not authorized to update this application")
+        db_app = update_application_status(db, db_app, input.status)
         return _app_type(db_app)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])

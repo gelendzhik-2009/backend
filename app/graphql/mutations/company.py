@@ -56,7 +56,11 @@ class CompanyMutation:
     @strawberry.mutation(permission_classes=[IsEmployer])
     def add_social_link(self, info: Info, company_id: _uuid.UUID, input: CompanySocialLinkInput) -> CompanySocialLinkType:
         from app.models.company_social_link import CompanySocialLink
+        from app.crud.company import get_company
         db = info.context.db
+        db_company = get_company(db, company_id)
+        if not db_company or db_company.owner_id != info.context.user.id:
+            raise ValueError("Company not found or not owned by you")
         link = CompanySocialLink(company_id=company_id, platform_name=input.platform_name, url=input.url)
         db.add(link)
         db.commit()
@@ -66,7 +70,11 @@ class CompanyMutation:
     @strawberry.mutation(permission_classes=[IsEmployer])
     def add_photo(self, info: Info, company_id: _uuid.UUID, input: CompanyPhotoInput) -> CompanyPhotoType:
         from app.models.company_photo import CompanyPhoto
+        from app.crud.company import get_company
         db = info.context.db
+        db_company = get_company(db, company_id)
+        if not db_company or db_company.owner_id != info.context.user.id:
+            raise ValueError("Company not found or not owned by you")
         photo = CompanyPhoto(company_id=company_id, url=input.url, sort_order=input.sort_order)
         db.add(photo)
         db.commit()
@@ -76,6 +84,10 @@ class CompanyMutation:
     @strawberry.mutation(permission_classes=[IsEmployer])
     def submit_verification(self, info: Info, company_id: _uuid.UUID, input: VerificationRequestInput) -> VerificationRequestType:
         from app.crud.verification_request import create_verification_request
+        from app.crud.company import get_company
+        db_company = get_company(info.context.db, company_id)
+        if not db_company or db_company.owner_id != info.context.user.id:
+            raise ValueError("Company not found or not owned by you")
         data = {k: v for k, v in vars(input).items() if v is not None}
         req = create_verification_request(info.context.db, company_id, data)
         return VerificationRequestType(

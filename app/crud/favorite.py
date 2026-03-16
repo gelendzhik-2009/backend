@@ -18,9 +18,9 @@ def add_favorite(db: Session, user_id: UUID, post_id: Optional[UUID] = None, com
     return db_fav
 
 
-def remove_favorite(db: Session, favorite_id: UUID) -> bool:
-    """Remove a favorite"""
-    db_fav = db.query(Favorite).filter(Favorite.id == favorite_id).first()
+def remove_favorite(db: Session, user_id: UUID, favorite_id: UUID) -> bool:
+    """Remove a favorite belonging to a specific user"""
+    db_fav = db.query(Favorite).filter(Favorite.id == favorite_id, Favorite.user_id == user_id).first()
     if db_fav:
         db.delete(db_fav)
         db.commit()
