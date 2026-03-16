@@ -1,0 +1,642 @@
+@startuml ERD
+!theme plain
+skinparam linetype ortho
+skinparam ranksep 55
+skinparam nodesep 40
+top to bottom direction
+
+title Трамплин
+
+enum user_role {
+  EMPLOYEE
+  EMPLOYER
+  MODERATOR
+  SUPERADMIN
+}
+
+enum post_type {
+  VACANCY
+  INTERNSHIP
+  EVENT
+  MENTORING_PROGRAM
+  POST
+}
+
+enum work_format {
+  OFFICE
+  HYBRID
+  REMOTE
+}
+
+enum employment_type {
+  FULL_TIME
+  PART_TIME
+  PROJECT
+}
+
+enum compensation_period {
+  HOURLY
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+  TOTAL
+}
+
+enum experience_level {
+  INTERN
+  JUNIOR
+  MIDDLE
+  SENIOR
+}
+
+enum post_status {
+  ACTIVE
+  CLOSED
+  PLANNED
+}
+
+enum application_status {
+  PENDING
+  ACCEPTED
+  REJECTED
+  RESERVED
+}
+
+enum contact_status {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum contact_channel_type {
+  TELEGRAM
+  WHATSAPP
+  MAX
+  VK
+  FACEBOOK_MESSENGER
+  SLACK
+  LINKEDIN
+}
+
+enum verification_status {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum notification_type {
+  COMPANY
+  RECOMMENDATION
+  APPLICATION_STATUS
+  CONTACT_REQUEST
+  SYSTEM
+}
+
+enum privacy_level {
+  PRIVATE
+  CONTACTS_ONLY
+  PUBLIC
+}
+
+entity "user" as user {
+  * **id** : uuid <<PK>>
+  --
+  * email : varchar(255) <<unique>>
+  * display_name : varchar(100)
+  * password_hash : varchar(255)
+  * role : user_role
+  avatar_url : text
+  * is_active : boolean = true
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+
+note top of user
+  GDPR / защита данных:
+  • В этой схеме намеренно не хранятся
+    специальные категории персональных данных
+    из GDPR Art. 9.
+  • Но обычные персональные данные и
+    аутентификационные данные всё равно
+    требуют защиты.
+  • Одностороннее шифрование (hash only):
+    password_hash
+    Рекомендуется Argon2id / bcrypt / scrypt
+    + уникальная salt.
+  • Двустороннее шифрование:
+    email и иные поля, по которым можно
+    напрямую идентифицировать человека,
+    если они не нужны для открытого показа.
+end note
+
+entity "applicant_profile" as applicant {
+  * **id** : uuid <<PK>>
+  --
+  * user_id : uuid <<FK, unique>>
+  given_name : varchar(100)
+  middle_name : varchar(100)
+  family_name : varchar(100)
+  bio : text
+  resume_url : text
+  portfolio_url : text
+  * profile_visibility : privacy_level = 'PRIVATE'
+  * hide_applications : boolean = false
+}
+
+note right of applicant
+  Двустороннее шифрование рекомендуется для
+  прямых идентификаторов физлица:
+  • given_name
+  • middle_name
+  • family_name
+
+  Публичные поля профиля можно хранить
+  в открытом виде только если это соответствует
+  настройкам приватности пользователя.
+end note
+
+entity "education" as education {
+  * **id** : uuid <<PK>>
+  --
+  * applicant_profile_id : uuid <<FK>>
+  * organization_name : varchar(255)
+  degree : varchar(150)
+  field_of_study : varchar(150)
+  start_year : smallint
+  graduation_year : smallint
+  is_current : boolean = false
+}
+
+entity "project" as project {
+  * **id** : uuid <<PK>>
+  --
+  * applicant_profile_id : uuid <<FK>>
+  * title : varchar(255)
+  * description : text <<sanitized HTML from MD>>
+  role_name : varchar(150)
+  project_url : text
+  demo_url : text
+  start_date : date
+  end_date : date
+  is_ongoing : boolean = false
+}
+
+entity "project_repository" as project_repository {
+  * **id** : uuid <<PK>>
+  --
+  * project_id : uuid <<FK>>
+  * url : text
+  label : varchar(100)
+  is_primary : boolean = false
+}
+
+entity "project_skill" as project_skill {
+  * **project_id** : uuid <<PK, FK>>
+  * **skill_id** : integer <<PK, FK>>
+}
+
+entity "company" as company {
+  * **id** : uuid <<PK>>
+  --
+  * owner_id : uuid <<FK>>
+  address_id : uuid <<FK>>
+  * name : varchar(255)
+  description : text
+  industry : varchar(150)
+  website_url : text
+  logo_url : text
+  * is_verified : boolean = false
+  verified_at : timestamptz
+  verified_by : uuid <<FK>>
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+
+entity "company_social_link" as company_social_link {
+  * **id** : uuid <<PK>>
+  --
+  * company_id : uuid <<FK>>
+  * platform_name : varchar(100)
+  * url : text
+}
+
+entity "company_photo" as company_photo {
+  * **id** : uuid <<PK>>
+  --
+  * company_id : uuid <<FK>>
+  * url : text
+  sort_order : integer
+}
+
+entity "verification_request" as verification {
+  * **id** : uuid <<PK>>
+  --
+  * company_id : uuid <<FK>>
+  tax_country_code : char(2)
+  tax_id : varchar(32)
+  * status : verification_status = 'PENDING'
+  reviewed_by : uuid <<FK>>
+  reviewed_at : timestamptz
+  rejection_reason : text
+  * created_at : timestamptz
+}
+
+note right of verification
+  Для верификации используется налоговый
+  идентификатор компании.
+
+  tax_country_code нужен для международного
+  сервиса, потому что формат TIN / INN / VAT /
+  EIN зависит от страны.
+  Используется ISO 3166-1 alpha-2.
+
+  tax_id хранится как строка переменной длины,
+  так как в разных странах идентификатор может
+  содержать 10, 12, 13 и более символов,
+  а также буквы и разделители.
+
+  Для tax_id рекомендуется
+  двустороннее шифрование.
+end note
+
+entity "address" as address {
+  * **id** : uuid <<PK>>
+  --
+  * country_code : char(2)
+  region : varchar(150)
+  * city : varchar(150)
+  postal_code : varchar(32)
+  * address_line : text
+  * latitude : numeric(9,6)
+  * longitude : numeric(9,6)
+  * created_at : timestamptz
+}
+
+note right of address
+  Переиспользуемая запись адреса.
+  **country_code** использует
+  ISO 3166-1 alpha-2.
+  UI может собирать адрес как:
+  [country], [region], [city], [address_line].
+  Почтовый индекс хранится отдельно
+  в **postal_code**.
+  Для профиля компании лучше не хранить
+  готовую строку адреса в БД, а собирать её
+  на уровне UI из атомарных полей,
+  пропуская пустые значения.
+  **lat/lng** — координаты для
+  OpenStreetMap.
+end note
+
+entity "post" as post {
+  * **id** : uuid <<PK>>
+  --
+  * author_id : uuid <<FK>>
+  * company_id : uuid <<FK>>
+  * type : post_type
+  * status : post_status = 'ACTIVE'
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+
+entity "post_contact" as post_contact {
+  * **id** : uuid <<PK>>
+  --
+  * post_id : uuid <<FK, unique>>
+  contact_person : varchar(150)
+  email : varchar(255)
+  phone : varchar(50)
+  website_url : text
+  apply_url : text
+  note : text
+}
+
+entity "post_contact_channel" as post_contact_channel {
+  * **id** : uuid <<PK>>
+  --
+  * post_contact_id : uuid <<FK>>
+  * type : contact_channel_type
+  * value : varchar(255)
+  label : varchar(100)
+  is_primary : boolean = false
+}
+
+note right of post_contact
+  Контактные данные физлиц / представителей:
+  • contact_person
+  • email
+  • phone
+
+  phone рекомендуется хранить
+  в формате E.164.
+
+  Мессенджеры вынесены в отдельную
+  таблицу post_contact_channel.
+
+  Для этих полей рекомендуется
+  двустороннее шифрование.
+end note
+
+note right of post
+  Таблица-агрегатор.
+  Только общие ключи — у каждого
+  post_type своя таблица
+  деталей ниже.
+end note
+
+entity "vacancy_post" as vacancy_post {
+  * **id** : uuid <<PK>>
+  --
+  * post_id : uuid <<FK, unique>>
+  * address_id : uuid <<FK>>
+  * title : varchar(255)
+  * description : text <<sanitized HTML from MD>>
+  * work_format : work_format
+  * employment_type : employment_type
+  * experience_level : experience_level
+  salary_min : numeric(12,2)
+  salary_max : numeric(12,2)
+  currency_code : char(3)
+  salary_period : compensation_period
+  is_gross : boolean = false
+  * expires_at : timestamptz
+}
+
+note right of vacancy_post
+  currency_code использует ISO 4217.
+  salary_period и is_gross позволяют
+  корректно показывать оплату в разных странах.
+end note
+
+entity "internship_post" as internship_post {
+  * **id** : uuid <<PK>>
+  --
+  * post_id : uuid <<FK, unique>>
+  * address_id : uuid <<FK>>
+  * title : varchar(255)
+  * description : text <<sanitized HTML from MD>>
+  * work_format : work_format
+  salary_min : numeric(12,2)
+  salary_max : numeric(12,2)
+  currency_code : char(3)
+  salary_period : compensation_period
+  is_gross : boolean = false
+  duration_months : smallint
+  * starts_at : timestamptz
+  * expires_at : timestamptz
+}
+
+entity "event_post" as event_post {
+  * **id** : uuid <<PK>>
+  --
+  * post_id : uuid <<FK, unique>>
+  address_id : uuid <<FK>>
+  * title : varchar(255)
+  * description : text <<sanitized HTML from MD>>
+  * event_date : timestamptz
+  event_end_date : timestamptz
+  * is_online : boolean = false
+  external_url : text
+}
+
+entity "mentoring_post" as mentoring_post {
+  * **id** : uuid <<PK>>
+  --
+  * post_id : uuid <<FK, unique>>
+  address_id : uuid <<FK>>
+  * title : varchar(255)
+  * description : text <<sanitized HTML from MD>>
+  * is_online : boolean = false
+  capacity : integer
+  duration_months : smallint
+  * starts_at : timestamptz
+  * expires_at : timestamptz
+}
+
+entity "simple_post" as simple_post {
+  * **id** : uuid <<PK>>
+  --
+  * post_id : uuid <<FK, unique>>
+  * description : text <<sanitized HTML from MD>>
+  image_url : text
+}
+
+note right of simple_post
+  Тип POST — только
+  описание + необязательный
+  image_url.
+end note
+
+entity "skill" as skill {
+  * **id** : serial <<PK>>
+  --
+  * name : varchar(100) <<unique>>
+}
+
+entity "hashtag" as hashtag {
+  * **id** : serial <<PK>>
+  --
+  * name : varchar(100) <<unique>>
+}
+
+entity "post_skill" as post_skill {
+  * **post_id** : uuid <<PK, FK>>
+  * **skill_id** : integer <<PK, FK>>
+}
+
+entity "post_hashtag" as post_hashtag {
+  * **post_id** : uuid <<PK, FK>>
+  * **hashtag_id** : integer <<PK, FK>>
+}
+
+entity "applicant_skill" as applicant_skill {
+  * **applicant_profile_id** : uuid <<PK, FK>>
+  * **skill_id** : integer <<PK, FK>>
+}
+
+entity "application" as application {
+  * **id** : uuid <<PK>>
+  --
+  * post_id : uuid <<FK>>
+  * applicant_id : uuid <<FK>>
+  * status : application_status = 'PENDING'
+  cover_letter : text
+  * created_at : timestamptz
+  * updated_at : timestamptz
+  ..
+  <<unique(post_id, applicant_id)>>
+}
+
+entity "favorite" as favorite {
+  * **id** : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+  post_id : uuid <<FK>>
+  company_id : uuid <<FK>>
+  * created_at : timestamptz
+  ..
+  <<check: post_id IS NOT NULL
+  OR company_id IS NOT NULL>>
+}
+
+entity "contact" as contact {
+  * **id** : uuid <<PK>>
+  --
+  * requester_id : uuid <<FK>>
+  * addressee_id : uuid <<FK>>
+  * status : contact_status = 'PENDING'
+  * created_at : timestamptz
+  * updated_at : timestamptz
+  ..
+  <<unique(requester_id, addressee_id)>>
+  <<check: requester_id <> addressee_id>>
+}
+
+entity "recommendation" as recommendation {
+  * **id** : uuid <<PK>>
+  --
+  * sender_id : uuid <<FK>>
+  * receiver_id : uuid <<FK>>
+  * post_id : uuid <<FK>>
+  message : text
+  * created_at : timestamptz
+}
+
+entity "notification" as notification {
+  * **id** : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+  * type : notification_type
+  * title : varchar(255)
+  message : text
+  * is_read : boolean = false
+  reference_id : uuid
+  * created_at : timestamptz
+}
+
+' Профили пользователей
+user ||--o| applicant : "user_id\n(у EMPLOYEE есть профиль)"
+user ||--o{ company : "owner_id\n(EMPLOYER владеет)"
+
+' Верификация компаний
+company ||--o{ verification : "company_id"
+company ||--o{ company_social_link : "company_id"
+company ||--o{ company_photo : "company_id"
+user ||--o{ verification : "reviewed_by\n(MODERATOR проверяет)"
+user ||--o{ company : "verified_by"
+
+' Адреса
+address ||--o{ company : "address_id"
+address ||--o{ vacancy_post : "address_id"
+address ||--o{ internship_post : "address_id"
+address ||--o{ event_post : "address_id"
+address ||--o{ mentoring_post : "address_id"
+
+' Посты (базовая таблица)
+user ||--o{ post : "author_id"
+company ||--o{ post : "company_id"
+post ||--o| post_contact : "post_id"
+post_contact ||--o{ post_contact_channel : "post_contact_id"
+
+' Детальные таблицы типов постов
+post ||--o| vacancy_post : "post_id"
+post ||--o| internship_post : "post_id"
+post ||--o| event_post : "post_id"
+post ||--o| mentoring_post : "post_id"
+post ||--o| simple_post : "post_id"
+
+' Теги постов (М:М)
+post ||--o{ post_skill : "post_id"
+skill ||--o{ post_skill : "skill_id"
+post ||--o{ post_hashtag : "post_id"
+hashtag ||--o{ post_hashtag : "hashtag_id"
+
+' Навыки соискателя (М:М)
+applicant ||--o{ applicant_skill : "applicant_profile_id"
+applicant ||--o{ education : "applicant_profile_id"
+applicant ||--o{ project : "applicant_profile_id"
+skill ||--o{ applicant_skill : "skill_id"
+
+' Проекты соискателя
+project ||--o{ project_repository : "project_id"
+project ||--o{ project_skill : "project_id"
+skill ||--o{ project_skill : "skill_id"
+
+' Отклики
+post ||--o{ application : "post_id"
+user ||--o{ application : "applicant_id\n(EMPLOYEE откликается)"
+
+' Избранное
+user ||--o{ favorite : "user_id"
+post ||--o{ favorite : "post_id"
+company ||--o{ favorite : "company_id"
+
+' Профессиональные контакты
+user ||--o{ contact : "requester_id"
+user ||--o{ contact : "addressee_id"
+
+' Рекомендации
+user ||--o{ recommendation : "sender_id"
+user ||--o{ recommendation : "receiver_id"
+post ||--o{ recommendation : "post_id"
+
+' Уведомления
+user ||--o{ notification : "user_id"
+
+' Направляющие для раскладки
+user_role -[hidden]right- post_type
+post_type -[hidden]right- work_format
+work_format -[hidden]right- employment_type
+employment_type -[hidden]right- compensation_period
+
+experience_level -[hidden]right- post_status
+post_status -[hidden]right- application_status
+application_status -[hidden]right- contact_status
+contact_status -[hidden]right- verification_status
+verification_status -[hidden]right- privacy_level
+
+notification_type -[hidden]right- contact_channel_type
+
+user_role -[hidden]down- experience_level
+compensation_period -[hidden]down- privacy_level
+experience_level -[hidden]down- notification_type
+
+user -[hidden]right- company
+company -[hidden]right- applicant
+
+company -[hidden]down- verification
+verification -[hidden]right- post
+post -[hidden]right- address
+
+company_social_link -[hidden]down- company
+company -[hidden]down- company_photo
+
+applicant -[hidden]down- education
+education -[hidden]right- project
+project -[hidden]down- project_repository
+project -[hidden]right- project_skill
+applicant_skill -[hidden]down- project_skill
+
+post_contact -[hidden]left- post
+post -[hidden]right- simple_post
+post_contact -[hidden]down- post_contact_channel
+
+vacancy_post -[hidden]down- post
+vacancy_post -[hidden]right- internship_post
+internship_post -[hidden]right- event_post
+event_post -[hidden]right- mentoring_post
+
+post_skill -[hidden]down- vacancy_post
+post_hashtag -[hidden]right- post_skill
+skill -[hidden]left- post_skill
+hashtag -[hidden]right- post_hashtag
+
+application -[hidden]down- post_skill
+application -[hidden]right- favorite
+favorite -[hidden]right- recommendation
+contact -[hidden]right- notification
+
+address -[hidden]down- company
+
+@enduml

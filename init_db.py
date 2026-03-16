@@ -1,14 +1,11 @@
-"""
-Initialization script for first-time setup.
-Optional: Run this to verify the database connection.
-"""
+"""Initialization script — creates all tables from models"""
 
 from app.database import engine, Base
-from app.models import User
+import app.models  # noqa: F401 — registers all model metadata
+import app.models.associations  # noqa: F401
 
 if __name__ == "__main__":
-    # Create all tables
     Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully!")
-    print("Tables created:")
-    print("  - users")
+    print("Database tables created successfully!")
+    for table in Base.metadata.sorted_tables:
+        print(f"  - {table.name}")

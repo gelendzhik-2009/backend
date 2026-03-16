@@ -55,3 +55,6 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# AI
+.github/copilot-instructions.md
