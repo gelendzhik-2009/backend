@@ -4,12 +4,13 @@ from typing import Optional
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from starlette.requests import Request
+from strawberry.fastapi import BaseContext
 from app.config import settings
 from app.database import SessionLocal
 from app.models.user import User
 
 
-class Context:
+class Context(BaseContext):
     """Holds DB session and authenticated user for a single GraphQL request"""
 
     def __init__(self, db: Session, user: Optional[User]):
