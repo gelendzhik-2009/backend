@@ -19,7 +19,7 @@ class Favorite(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "post_id IS NOT NULL OR company_id IS NOT NULL",
+            "(post_id IS NOT NULL AND company_id IS NULL) OR (post_id IS NULL AND company_id IS NOT NULL)",
             name="ck_favorite_target",
         ),
     )

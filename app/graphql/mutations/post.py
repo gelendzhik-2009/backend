@@ -123,16 +123,22 @@ DETAIL_FIELD_MAP = {
     "VACANCY": "vacancy",
     "INTERNSHIP": "internship",
     "EVENT": "event",
-    "MENTORING": "mentoring",
-    "SIMPLE": "simple",
+    "MENTORING_PROGRAM": "mentoring",
+    "POST": "simple",
 }
 
 
 def _validate_post_detail(input: CreatePostInput):
+    """Validate that exactly one detail payload matches post_type"""
+    from app.enums import PostType as PostTypeEnum
     detail_fields = ["vacancy", "internship", "event", "mentoring", "simple"]
     provided = [f for f in detail_fields if getattr(input, f, None) is not None]
     if len(provided) != 1:
         raise ValueError("Exactly one detail payload must be provided")
+    try:
+        PostTypeEnum(input.post_type.upper())
+    except ValueError:
+        raise ValueError(f"Invalid post_type: '{input.post_type}'")
     expected_field = DETAIL_FIELD_MAP.get(input.post_type.upper())
     if expected_field != provided[0]:
         raise ValueError(f"Detail payload '{provided[0]}' does not match post_type '{input.post_type}'")

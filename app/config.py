@@ -27,3 +27,6 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+if not settings.DEBUG and not settings.SECRET_KEY:
+    raise RuntimeError("SECRET_KEY must be set in production (DEBUG=False)")

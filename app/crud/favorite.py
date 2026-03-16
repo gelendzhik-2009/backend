@@ -11,10 +11,12 @@ def get_favorites_by_user(db: Session, user_id: UUID) -> list[Favorite]:
 
 def toggle_favorite(db: Session, user_id: UUID, post_id: Optional[UUID] = None, company_id: Optional[UUID] = None):
     """Toggle a favorite: remove if exists, create if not. Returns (Favorite|None, created:bool)"""
+    if bool(post_id) == bool(company_id):
+        raise ValueError("Exactly one of post_id or company_id must be provided")
     query = db.query(Favorite).filter(Favorite.user_id == user_id)
     if post_id:
         query = query.filter(Favorite.post_id == post_id)
-    elif company_id:
+    else:
         query = query.filter(Favorite.company_id == company_id)
     existing = query.first()
     if existing:

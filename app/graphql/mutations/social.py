@@ -52,8 +52,8 @@ class SocialMutation:
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     def toggle_favorite(self, info: Info, input: FavoriteInput) -> Optional[FavoriteType]:
-        if not input.post_id and not input.company_id:
-            raise ValueError("Either post_id or company_id must be provided")
+        if bool(input.post_id) == bool(input.company_id):
+            raise ValueError("Exactly one of post_id or company_id must be provided")
         from app.crud.favorite import toggle_favorite
         db_f, created = toggle_favorite(info.context.db, info.context.user.id, input.post_id, input.company_id)
         if not created:
