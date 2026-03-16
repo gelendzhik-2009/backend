@@ -1,0 +1,40 @@
+"""GraphQL request context with DB session and optional current user"""
+
+from typing import Optional
+from jose import JWTError, jwt
+from sqlalchemy.orm import Session
+from starlette.requests import Request
+from app.config import settings
+from app.database import SessionLocal
+from app.models.user import User
+
+
+class Context:
+    """Holds DB session and authenticated user for a single GraphQL request"""
+
+    def __init__(self, db: Session, user: Optional[User]):
+        self.db = db
+        self.user = user
+
+
+def _extract_user(request: Request, db: Session) -> Optional[User]:
+    """Parse Bearer token from request and resolve user"""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header[7:]
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            return None
+    except JWTError:
+        return None
+    return db.query(User).filter(User.id == user_id).first()
+
+
+async def get_context(request: Request) -> Context:
+    """Strawberry context dependency"""
+    db = SessionLocal()
+    user = _extract_user(request, db)
+    return Context(db=db, user=user)

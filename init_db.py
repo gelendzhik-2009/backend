@@ -1,14 +1,17 @@
-"""
-Initialization script for first-time setup.
-Optional: Run this to verify the database connection.
-"""
+"""Initialization script — creates all tables from models"""
 
 from app.database import engine, Base
-from app.models import User
+from app.models import (
+    User, ApplicantProfile, Education, Project, ProjectRepository,
+    Company, CompanySocialLink, CompanyPhoto, VerificationRequest, Address,
+    Post, PostContact, PostContactChannel,
+    VacancyPost, InternshipPost, EventPost, MentoringPost, SimplePost,
+    Skill, Hashtag, Application, Favorite, Contact, Recommendation, Notification,
+)
+from app.models.associations import post_skills, post_hashtags, applicant_skills, project_skills
 
 if __name__ == "__main__":
-    # Create all tables
     Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully!")
-    print("Tables created:")
-    print("  - users")
+    print("Database tables created successfully!")
+    for table in Base.metadata.sorted_tables:
+        print(f"  - {table.name}")

@@ -1,39 +1,35 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from strawberry.fastapi import GraphQLRouter
 from app.config import settings
-from app.database import Base, engine
-from app.api.endpoints import auth_router, users_router
+from app.graphql.schema import schema
+from app.graphql.context import get_context
+from app.api.endpoints.upload import router as upload_router
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
-
-# Initialize FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,
     debug=settings.DEBUG,
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Modify for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(auth_router, prefix=settings.API_V1_STR)
-app.include_router(users_router, prefix=settings.API_V1_STR)
+graphql_app = GraphQLRouter(schema, context_getter=get_context)
+app.include_router(graphql_app, prefix="/graphql")
+app.include_router(upload_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")
 def root():
     """Root endpoint"""
     return {
-        "message": "Welcome to the API",
-        "docs": "/docs",
-        "openapi_schema": "/openapi.json"
+        "message": f"Welcome to {settings.PROJECT_NAME}",
+        "graphql": "/graphql",
     }
 
 
